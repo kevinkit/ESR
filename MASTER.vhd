@@ -886,53 +886,69 @@ begin
 			 case SLAVE_SAVE is
 			     when 0 =>
                      if(M_AXI_ARREADY_00 = '1')then
-                         STATE <= SEND_ADDRESS;
-                     end if;
+						 if(SM_WE_IN_00 = '0')then
+								Semaphor := '1';
+							else
+								Semaphor2 := '1';
+							end if;
+						 end if;
 			     when 1 =>
 			        if(M_AXI_ARREADY_01 = '1')then
-                        STATE <= SEND_ADDRESS;
+						if(SM_WE_IN_01 = '0')then
+                            Semaphor := '1';
+                        else
+                            Semaphor2 := '1';
+                        end if;
                     end if;
 --			     when 2 =>
 --			         if(M_AXI_ARREADY_02 = '1')then
---                        STATE <= SEND_ADDRESS;
---                     end if;
---			     when 3 =>
---                     if(M_AXI_ARREADY_03 = '1')then
---                        STATE <= SEND_ADDRESS;
---                     end if;
-			     when others =>
-			 end case;
-
-			--kann man eigentlich weglassen und dann in den vorherigen Zustand einfügen?
-			when SEND_ADDRESS =>
-		    STATE <= IDLE; --muss weitergehen, wenn nicht ist dies ein fehlerfall
-				case SLAVE_SAVE is
-				    when 0 =>
-                        if(SM_WE_IN_00 = '0')then
-                            Semaphor := '1';
-                        else
-                            Semaphor2 := '1';
-                        end if;
-				    when 1 =>
-				        if(SM_WE_IN_01 = '0')then
-                            Semaphor := '1';
-                        else
-                            Semaphor2 := '1';
-                        end if;
---				    when 2 =>
---				        if(SM_WE_IN_02 = '0')then
+--                   	if(SM_WE_IN_02 = '0')then
 --                            Semaphor := '1';
 --                        else
 --                            Semaphor2 := '1';
 --                        end if;
---				    when 3 =>
---				        if(SM_WE_IN_03 = '0')then
---                            Semaphor := '1';
---                        else
---                            Semaphor2 := '1';
---                    end if;
-				    when others =>
-				end case;
+--                     end if;
+--			     when 3 =>
+--                     if(M_AXI_ARREADY_03 = '1')then
+--                 			if(SM_WE_IN_01 = '0')then
+--								Semaphor := '1';
+--							else
+--								Semaphor2 := '1';
+--						end if;
+--                     end if;
+			     when others =>
+			 end case;
+
+			-- kann man eigentlich weglassen und dann in den vorherigen Zustand einfügen?
+			-- when SEND_ADDRESS =>
+		    -- STATE <= IDLE; --muss weitergehen, wenn nicht ist dies ein fehlerfall
+				-- case SLAVE_SAVE is
+				    -- when 0 =>
+                        -- if(SM_WE_IN_00 = '0')then
+                            -- Semaphor := '1';
+                        -- else
+                            -- Semaphor2 := '1';
+                        -- end if;
+				    -- when 1 =>
+				        -- if(SM_WE_IN_01 = '0')then
+                            -- Semaphor := '1';
+                        -- else
+                            -- Semaphor2 := '1';
+                        -- end if;
+				    -- when 2 =>
+				        -- if(SM_WE_IN_02 = '0')then
+                           -- Semaphor := '1';
+                       -- else
+                           -- Semaphor2 := '1';
+                       -- end if;
+				    -- when 3 =>
+				        -- if(SM_WE_IN_03 = '0')then
+                           -- Semaphor := '1';
+                       -- else
+                           -- Semaphor2 := '1';
+                   -- end if;
+				    -- when others =>
+				-- end case;
 				 
 		    if Semaphor = '1' then -- READ
                 M_AXI_ARVALID <= '1';
