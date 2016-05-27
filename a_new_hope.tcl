@@ -10,8 +10,19 @@
 ##    the name will also change
 #############################
 #############################
-set CPU_Anzahl 3
 
+
+set t [info exists CPU_Anzahl]
+puts $t
+
+if { $t == 0 } {
+	set CPU_Anzahl 1
+}
+
+set t [info exists DesignName]
+if { $t == 0 } {
+	set DesignName  "MyDesign"
+}
 
 
 proc create_hier_cell_MicroBlaze { parentCell name } {
@@ -202,6 +213,7 @@ CONFIG.PRIM_SOURCE {Differential_clock_capable_pin} \
     
     puts "ICH BIN HIER"
     set l [list]
+	set g [list]
     set MicroBlazeItName "MicroBlaze_"
 	set lmb_bram_name "lm_bram_if_cntlr_"
 	set MBDEBUG_NAME "MBDEBUG_"
@@ -243,18 +255,15 @@ CONFIG.PRIM_SOURCE {Differential_clock_capable_pin} \
 		
 				  # Create instance: axi_bram_ctrl_0_bram, and set properties
 		  set axi_bram_ctrl_0_bram [ create_bd_cell -type ip -vlnv xilinx.com:ip:blk_mem_gen:8.3 $axi_bram_ctrl_bram$i ]
-		  set_property -dict [list CONFIG.Write_Depth_A {32768} CONFIG.use_bram_block {Stand_Alone} CONFIG.Memory_Type {True_Dual_Port_RAM} CONFIG.Enable_32bit_Address {false} CONFIG.Use_Byte_Write_Enable {false} CONFIG.Byte_Size {9} CONFIG.Register_PortA_Output_of_Memory_Primitives {true} CONFIG.Register_PortB_Output_of_Memory_Primitives {true} CONFIG.Use_RSTA_Pin {false} CONFIG.Use_RSTB_Pin {false}] [get_bd_cells $axi_bram_ctrl_bram$i] $axi_bram_ctrl_0_bram
-
-
-		# set_property -dict [ list \
-		# CONFIG.Assume_Synchronous_Clk {true} \
-		# CONFIG.Enable_B {Use_ENB_Pin} \
-		# CONFIG.Memory_Type {True_Dual_Port_RAM} \
-		# CONFIG.Port_B_Clock {100} \
-		# CONFIG.Port_B_Enable_Rate {100} \
-		# CONFIG.Port_B_Write_Rate {50} \
-		# CONFIG.Use_RSTB_Pin {true} \
-		 # ] $axi_bram_ctrl_0_bram
+		  set_property -dict [ list \
+		CONFIG.Assume_Synchronous_Clk {true} \
+		CONFIG.Enable_B {Use_ENB_Pin} \
+		CONFIG.Memory_Type {True_Dual_Port_RAM} \
+		CONFIG.Port_B_Clock {100} \
+		CONFIG.Port_B_Enable_Rate {100} \
+		CONFIG.Port_B_Write_Rate {50} \
+		CONFIG.Use_RSTB_Pin {true} \
+		 ] $axi_bram_ctrl_0_bram
 		
 		set lmb_bram_if_cntlr [ create_bd_cell -type ip -vlnv xilinx.com:ip:lmb_bram_if_cntlr:4.0 $lmb_bram_name$i ]
 		
@@ -290,10 +299,44 @@ CONFIG.PRIM_SOURCE {Differential_clock_capable_pin} \
 	connect_bd_net -net mdm_1_debug_sys_rst [get_bd_pins mdm_1/Debug_SYS_Rst] [get_bd_pins rst_clk_wiz_1_100M/mb_debug_sys_rst]
 	connect_bd_net -net reset_rtl_0_1 [get_bd_ports reset_rtl_0] [get_bd_pins rst_clk_wiz_1_100M/ext_reset_in]
     connect_bd_net -net reset_rtl_1 [get_bd_ports reset_rtl] [get_bd_pins clk_wiz_1/reset]
-    
+    create_bd_cell -type ip -vlnv xilinx.com:ip:axi_interconnect:2.1 axi_interconnect_0
+	
+	set dumbthing $CPUs
+	puts $dumbthing
+	
+	# set execString "set_property -dict [list CONIFG_NUM_SI $dumbthing CONFIG_NUM_MI $dumbthing] [get_bd_cells axi_interconnect_0]"
+
+	
+	set openbracket "{"
+	set closebracket "}"
+	
+	set hardbracketopen {[}
+	set hardbracketclose {]}
+	
+	set setpropertydict "set_property -dict"
+	set listconfignumsi "list CONFIG.NUM_SI"
+	set confignummi "CONFIG.NUM_MI"
+	set empty " "
+	set list "list"
+	set getbdcell "get_bd_cells"
+	set axi_interconnect "axi_interconnect_0"
+	
+	
+	set execStr $setpropertydict$empty$hardbracketopen$listconfignumsi$empty$openbracket$CPUs$closebracket$empty$confignummi$empty$openbracket$CPUs$closebracket$hardbracketclose$empty$hardbracketopen$getbdcell$empty$axi_interconnect$hardbracketclose
+	puts execStr
+	
+
+	
+
+	eval "$execStr"
+	#eval $execString
+	# set z {$CPU_Anzahl}
+	# set_property -dict [list CONFIG.NUM_SI int({$z}) CONFIG.NUM_MI int({$z})] [get_bd_cells axi_interconnect_0]
 }
 
 #Muss jedesmal geändert werden!
-set Design "MyNewDesign" 
+set Design $DesignName
 create_bd_design $Design$CPU_Anzahl
 create_root_design "" $CPU_Anzahl
+unset DesignName
+unset CPU_Anzahl
