@@ -244,7 +244,7 @@ CONFIG.POLARITY {ACTIVE_LOW} \
 
     #AUSSERHALB VON DER SCHLEIFE!
     # Create instance: clk_wiz_1, and set properties
-    set clk_wiz_1 [ create_bd_cell -type ip -vlnv xilinx.com:ip:clk_wiz:5.2 clk_wiz_1 ]
+    set clk_wiz_1 [ create_bd_cell -type ip -vlnv xilinx.com:ip:clk_wiz:5.3 clk_wiz_1 ]
     set_property -quiet -dict [ list \
 CONFIG.PRIM_SOURCE {Differential_clock_capable_pin} \
  ] $clk_wiz_1
