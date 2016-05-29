@@ -33,6 +33,22 @@ if { $t == 0 } {
 	puts "No CPU Amount specified, put to 2"
 }
 
+#does not work in this version!
+set t [info exists Instruction_Size]
+puts $t
+if { $t == 0} {
+	set Instruction_Size 8
+	puts "Using Default for Instruction - Size : 8 K"
+}
+
+
+set t [info exists Memory_Size]
+puts $t
+if { $t == 0 } {
+	set Memory_Size 8
+	puts "Using Default for Memory Size: 8 K"	
+}
+
 set t [info exists DesignName]
 puts $t
 if { $t == 0 } {
@@ -49,7 +65,7 @@ if { $t == 0} {
 
 set t [info exists INTERCONNECTENABLE]
 puts $t
-if {$t == 0} {
+if { $t == 0 } {
 	set INTERCONNECTENABLE 1
 	puts "Interconnect will be included by own,.."
 	if { $CPU_Anzahl > 16} {
@@ -199,7 +215,7 @@ CONFIG.C_I_LMB {1} \
 }
 
 
-proc create_root_design { parentCell CPUs DebugEN INTERCONNECTENABLE} {
+proc create_root_design { parentCell CPUs DebugEN INTERCONNECTENABLE Instruction_Size Memory_Size} {
 	
   if { $parentCell eq "" } {
      set parentCell [get_bd_cells /]
@@ -226,40 +242,61 @@ proc create_root_design { parentCell CPUs DebugEN INTERCONNECTENABLE} {
   current_bd_instance $parentObj
 
 
-  # Create interface ports
-  set diff_clock_rtl [ create_bd_intf_port -mode Slave -vlnv xilinx.com:interface:diff_clock_rtl:1.0 diff_clock_rtl ]
-  set_property -dict [ list \
-CONFIG.FREQ_HZ {100000000} \
- ] $diff_clock_rtl
+  # # Create interface ports
+  # set diff_clock_rtl [ create_bd_intf_port -mode Slave -vlnv xilinx.com:interface:diff_clock_rtl:1.0 diff_clock_rtl ]
+  # set_property -dict [ list \
+# CONFIG.FREQ_HZ {100000000} \
+ # ] $diff_clock_rtl
 
-  # Create ports
-  set reset_rtl [ create_bd_port -dir I -type rst reset_rtl ]
-  set_property -dict [ list \
-CONFIG.POLARITY {ACTIVE_HIGH} \
- ] $reset_rtl
-  set reset_rtl_0 [ create_bd_port -dir I -type rst reset_rtl_0 ]
-  set_property -dict [ list \
-CONFIG.POLARITY {ACTIVE_LOW} \
- ] $reset_rtl_0
+  # # Create ports
+  # set reset_rtl [ create_bd_port -dir I -type rst reset_rtl ]
+  # set_property -dict [ list \
+# CONFIG.POLARITY {ACTIVE_HIGH} \
+ # ] $reset_rtl
+
+  # set reset_rtl_0 [ create_bd_port -dir I -type rst reset_rtl_0 ]
+  # set_property -dict [ list \
+# CONFIG.POLARITY {ACTIVE_HIGH} \
+ # ] $reset_rtl_0
 
     #AUSSERHALB VON DER SCHLEIFE!
     # Create instance: clk_wiz_1, and set properties
     set clk_wiz_1 [ create_bd_cell -type ip -vlnv xilinx.com:ip:clk_wiz:5.2 clk_wiz_1 ]
-    set_property -quiet -dict [ list \
-CONFIG.PRIM_SOURCE {Differential_clock_capable_pin} \
- ] $clk_wiz_1
+	set_property -dict [list CONFIG.PRIM_SOURCE {Single_ended_clock_capable_pin}] [get_bd_cells clk_wiz_1]
+	# set_property -quiet -dict [ list \
+# CONFIG.PRIM_SOURCE {Differential_clock_capable_pin} \
+ # ] $clk_wiz_1
     
+	create_bd_port -dir I -type rst reset
+	set_property CONFIG.POLARITY [get_property CONFIG.POLARITY [get_bd_pins clk_wiz_1/reset]] [get_bd_ports reset]
+	
+	connect_bd_net [get_bd_pins /clk_wiz_1/reset] [get_bd_ports reset]
+	set rst_clk_wiz_1_100M [ create_bd_cell -type ip -vlnv xilinx.com:ip:proc_sys_reset:5.0 rst_clk_wiz_1_100M ]
+	connect_bd_net [get_bd_pins rst_clk_wiz_1_100M/aux_reset_in] [get_bd_pins clk_wiz_1/reset]
+	
+	
 	set variable [expr int($CPUs)] 
 	
 	
-	if { $DebugEN == 1} {
+	create_bd_port -dir I -type clk clk_in1
+	connect_bd_net [get_bd_pins /clk_wiz_1/clk_in1] [get_bd_ports clk_in1]
+	# set_property CONFIG.POLARITY [get_property CONFIG.POLARITY [get_bd_pins clk_wiz_1/reset]] [get_bd_ports reset]
+	# connect_bd_net [get_bd_pins /clk_wiz_1/reset] [get_bd_ports reset]
+	# connect_bd_net [get_bd_ports reset] [get_bd_pins rst_clk_wiz_1_100M/aux_reset_in]
+	# #create_bd_intf_port -mode Slave -vlnv xilinx.com:interface:diff_clock_rtl:1.0 CLK_IN1_D
+	# #connect_bd_intf_net [get_bd_intf_pins clk_wiz_1/CLK_IN1_D] [get_bd_intf_ports CLK_IN1_D]
+	# #connect_bd_net [get_bd_ports clk_in1] [get_bd_pins clk_wiz_1/clk_in1]
+	# #create_bd_port -dir I -type clk clk_in1
+	# #connect_bd_net [get_bd_pins /clk_wiz_1/clk_in1] [get_bd_ports clk_in1]
+ 
+ 
+	if { $DebugEN == 1 } {
 		# # Create instance: mdm_1, and set properties
 		set mdm_1 [ create_bd_cell -type ip -vlnv xilinx.com:ip:mdm:3.2 mdm_1 ]
 		set_property CONFIG.C_MB_DBG_PORTS $variable $mdm_1
     }
     
-	set rst_clk_wiz_1_100M [ create_bd_cell -type ip -vlnv xilinx.com:ip:proc_sys_reset:5.0 rst_clk_wiz_1_100M ]
-    
+	
 	set l [list]
 	#set g [list]
     set MicroBlazeItName "MicroBlaze_"
@@ -271,7 +308,7 @@ CONFIG.PRIM_SOURCE {Differential_clock_capable_pin} \
 	set axi_bram_ctrl_bram "axi_bram_ctrl_bram_"
 	set lmb_bram_if_cntlrNAME "lmb_bram_if_cntlr_"
 	puts $CPUs
-    for {set i 0} {$i < $CPUs} {incr i} {
+    for { set i 0 } { $i < $CPUs } { incr i } {
         puts $i
         set l [linsert $l 0 $MicroBlazeItName$i]
         puts [lindex $l 0]
@@ -337,45 +374,15 @@ CONFIG.PRIM_SOURCE {Differential_clock_capable_pin} \
 	}
 	
 
-	connect_bd_intf_net -intf_net diff_clock_rtl_1 [get_bd_intf_ports diff_clock_rtl] [get_bd_intf_pins clk_wiz_1/CLK_IN1_D]
+#	connect_bd_intf_net -intf_net diff_clock_rtl_1 [get_bd_intf_ports diff_clock_rtl] [get_bd_intf_pins clk_wiz_1/CLK_IN1_D]
 	connect_bd_net -net clk_wiz_1_locked [get_bd_pins clk_wiz_1/locked] [get_bd_pins rst_clk_wiz_1_100M/dcm_locked]
 	
-	if { $DebugEN == 1} {
+	if { $DebugEN == 1 } {
 		connect_bd_net -net mdm_1_debug_sys_rst [get_bd_pins mdm_1/Debug_SYS_Rst] [get_bd_pins rst_clk_wiz_1_100M/mb_debug_sys_rst]
 	}
-	connect_bd_net -net reset_rtl_0_1 [get_bd_ports reset_rtl_0] [get_bd_pins rst_clk_wiz_1_100M/ext_reset_in]
-    connect_bd_net -net reset_rtl_1 [get_bd_ports reset_rtl] [get_bd_pins clk_wiz_1/reset]
+	#connect_bd_net -net reset_rtl_0_1 [get_bd_ports reset_rtl] [get_bd_pins rst_clk_wiz_1_100M/ext_reset_in]
+    #connect_bd_net -net reset_rtl_1 [get_bd_ports reset_rtl] [get_bd_pins clk_wiz_1/reset]
     
-	
-	
-	#create_bd_cell -type ip -vlnv xilinx.com:ip:axi_interconnect:2.1 axi_interconnect_0
-	
-
-
-	# set execString "set_property -dict [list CONIFG_NUM_SI $dumbthing CONFIG_NUM_MI $dumbthing] [get_bd_cells axi_interconnect_0]"
-	
-
-	
-	#UGLY OLD WORKAROUND ! NEW WAY ABOVE IS WAY BETTER
-	# set openbracket "{"
-	# set closebracket "}"
-	
-	# set hardbracketopen {[}
-	# set hardbracketclose {]}
-	
-	# set setpropertydict "set_property -dict"
-	# set listconfignumsi "list CONFIG.NUM_SI"
-	# set confignummi "CONFIG.NUM_MI"
-	# set empty " "
-	# set list "list"
-	# set getbdcell "get_bd_cells"
-	# set axi_interconnect "axi_interconnect_0"
-	 
-	# #interconnect modular einstellen
-	# set execStr $setpropertydict$empty$hardbracketopen$listconfignumsi$empty$openbracket$CPUs$closebracket$empty$confignummi$empty$openbracket$CPUs$closebracket$hardbracketclose$empty$hardbracketopen$getbdcell$empty$axi_interconnect$hardbracketclose
-	# puts $execStr
-	# #ineffizient hier diese Schleife noch einmal zu machen, aber dadurch kann der 
-	# #Code modulaer gehalten werden
 	
 	if { $INTERCONNECTENABLE == 1 } {
 	
@@ -386,52 +393,88 @@ CONFIG.PRIM_SOURCE {Differential_clock_capable_pin} \
 		set _axi "_AXI"
 		set _ACLK "_ACLK";
 		set _ARESETN "_ARESETN"
-
+		set _Mem "_Mem"
+		set _Mem0 "_Mem0"
+		set K "K"
 		for {set i 0} {$i < $CPUs} {incr i} {
 			puts "i am at"
 			puts $i
+			
 
-			if { $i < 10} {
+			if { $i < 10 } {
 			
 				connect_bd_intf_net -intf_net MICRO_TO_AXI$i [get_bd_intf_pins axi_interconnect_0/S0$i$_axi] [get_bd_intf_pins $MicroBlazeItName$i/M_AXI_DP]
 				connect_bd_intf_net -intf_net CONNECT_TO_BRAM$i [get_bd_intf_pins axi_interconnect_0/M0$i$_axi] [get_bd_intf_pins axi_bram_ctrl_$i/S_AXI]
-			
-			
 				connect_bd_net [get_bd_pins axi_interconnect_0/S0$i$_ACLK] [get_bd_pins clk_wiz_1/clk_out1]
 				connect_bd_net [get_bd_pins axi_interconnect_0/M0$i$_ACLK] [get_bd_pins clk_wiz_1/clk_out1]
 				connect_bd_net [get_bd_pins axi_interconnect_0/S0$i$_ARESETN] [get_bd_pins rst_clk_wiz_1_100M/peripheral_aresetn]
-				connect_bd_net [get_bd_pins axi_interconnect_0/M0$i$_ARESETN] [get_bd_pins rst_clk_wiz_1_100M/peripheral_aresetn]
+				connect_bd_net [get_bd_pins axi_interconnect_0/M0$i$_ARESETN] [get_bd_pins rst_clk_wiz_1_100M/peripheral_aresetn]		
 			} else {
 				connect_bd_intf_net -intf_net MICRO_TO_AXI$i [get_bd_intf_pins axi_interconnect_0/S$i$_axi] [get_bd_intf_pins $MicroBlazeItName$i/M_AXI_DP]
 				connect_bd_intf_net -intf_net CONNECT_TO_BRAM$i [get_bd_intf_pins axi_interconnect_0/M$i$_axi] [get_bd_intf_pins axi_bram_ctrl_$i/S_AXI]
-			
-			
 				connect_bd_net [get_bd_pins axi_interconnect_0/S$i$_ACLK] [get_bd_pins clk_wiz_1/clk_out1]
 				connect_bd_net [get_bd_pins axi_interconnect_0/M$i$_ACLK] [get_bd_pins clk_wiz_1/clk_out1]
 				connect_bd_net [get_bd_pins axi_interconnect_0/S$i$_ARESETN] [get_bd_pins rst_clk_wiz_1_100M/peripheral_aresetn]
 				connect_bd_net [get_bd_pins axi_interconnect_0/M$i$_ARESETN] [get_bd_pins rst_clk_wiz_1_100M/peripheral_aresetn]
 			}
-			
 		}
 		
-			connect_bd_net [get_bd_pins axi_interconnect_0/ACLK] [get_bd_pins clk_wiz_1/clk_out1]
-			connect_bd_net [get_bd_pins axi_interconnect_0/ARESETN] [get_bd_pins rst_clk_wiz_1_100M/peripheral_aresetn]
+		connect_bd_net [get_bd_pins axi_interconnect_0/ACLK] [get_bd_pins clk_wiz_1/clk_out1]
+		connect_bd_net [get_bd_pins axi_interconnect_0/ARESETN] [get_bd_pins rst_clk_wiz_1_100M/peripheral_aresetn]
+
+		# for { set i 0 } { $i < $CPUs } { incr i } {
+			# assign_bd_address [get_bd_addr_segs {lm_bram_if_cntlr_$i/SLMB/Mem }]
+		# }
+		
+		# for { set i 0 } { $i < $CPUs } { incr i } {
+			# assign_bd_address [get_bd_addr_segs {axi_bram_ctrl_$i/S_AXI/Mem0 }]
+		# }
+	
+		
+		# for { set i 0 } { $i < $CPUs } { incr i } {
+			# delete_bd_objs [get_bd_addr_segs MicroBlaze_$i/MicroBlaze_$i/Data/SEG_lm_bram_if_cntlr_$i$_Mem]
+			# for { set j 0 } { $j < $CPUs } { incr j } {
+				# delete_bd_objs [get_bd_addr_segs MicroBlaze_$j/MicroBlaze_$j/Data/SEG_axi_bram_ctrl_$i$_Mem0]
+			# }
+		# }
+		
+		# for { set i 0 } { $i < $CPUs } { incr i } {
+			# assign_bd_address [get_bd_addr_segs {lm_bram_if_cntlr_$i/SLMB/Mem }]
+		# }
+		
+		# for { set i 0 } { $i < $CPUs } { incr i } {
+			# assign_bd_address [get_bd_addr_segs {axi_bram_ctrl_$i/S_AXI/Mem0 }]
+		# }
+		
+		
 	}
 	
-	
 
-
-	#eval "$execStr"
-	#eval $execString
-	# set z {$CPU_Anzahl}
 }
 
 #Muss jedesmal geändert werden!
 set Design $DesignName
 create_bd_design $Design$CPU_Anzahl
-create_root_design "" $CPU_Anzahl $DebugEN $INTERCONNECTENABLE
-assign_bd_address
+create_root_design "" $CPU_Anzahl $DebugEN $INTERCONNECTENABLE $Instruction_Size $Memory_Size
+#assign_bd_address
+puts "Summary:"
+puts "Design-Name"
+puts $DesignName
+puts "CPU-Amount"
+puts $CPU_Anzahl
+puts "Debug-Enabled"
+puts $DebugEN
+puts "Interconnect included"
+puts $INTERCONNECTENABLE
+puts "Size of Instruction Memory"
+puts $Instruction_Size
+puts "Size of Memory"
+puts $Memory_Size
+
 unset DesignName
 unset CPU_Anzahl
 unset DebugEN
 unset INTERCONNECTENABLE
+unset Instruction_Size
+
+
