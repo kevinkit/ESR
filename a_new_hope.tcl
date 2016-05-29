@@ -272,7 +272,7 @@ proc create_root_design { parentCell CPUs DebugEN INTERCONNECTENABLE Instruction
 	
 	connect_bd_net [get_bd_pins /clk_wiz_1/reset] [get_bd_ports reset]
 	set rst_clk_wiz_1_100M [ create_bd_cell -type ip -vlnv xilinx.com:ip:proc_sys_reset:5.0 rst_clk_wiz_1_100M ]
-	set_property -dict [list CONFIG.C_AUX_RESET_HIGH.VALUE_SRC USER] [get_bd_cells rst_clk_wiz_1_100M]
+	#set_property -dict [list CONFIG.C_AUX_RESET_HIGH.VALUE_SRC USER] [get_bd_cells rst_clk_wiz_1_100M]
 	#connect_bd_net [get_bd_pins rst_clk_wiz_1_100M/aux_reset_in] [get_bd_pins clk_wiz_1/reset]
 	connect_bd_net [get_bd_pins rst_clk_wiz_1_100M/ext_reset_in] [get_bd_pins clk_wiz_1/reset]
 	
