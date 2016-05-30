@@ -263,10 +263,30 @@ proc create_root_design { parentCell CPUs DebugEN INTERCONNECTENABLE Instruction
     # Create instance: clk_wiz_1, and set properties
     set clk_wiz_1 [ create_bd_cell -type ip -vlnv xilinx.com:ip:clk_wiz:5.2 clk_wiz_1 ]
 	set_property -dict [list CONFIG.PRIM_SOURCE {Single_ended_clock_capable_pin}] [get_bd_cells clk_wiz_1]
-	# set_property -quiet -dict [ list \
-# CONFIG.PRIM_SOURCE {Differential_clock_capable_pin} \
- # ] $clk_wiz_1
-    
+	set_property -dict [ list \
+	CONFIG.CLKOUT1_JITTER {130.958} \
+	CONFIG.CLKOUT1_PHASE_ERROR {98.575} \
+	CONFIG.MMCM_CLKFBOUT_MULT_F {10.000} \
+	CONFIG.MMCM_CLKIN1_PERIOD {10.0} \
+	CONFIG.MMCM_CLKIN2_PERIOD {10.0} \
+	CONFIG.MMCM_CLKOUT0_DIVIDE_F {10.000} \
+	CONFIG.MMCM_COMPENSATION {ZHOLD} \
+	CONFIG.PRIM_SOURCE {Single_ended_clock_capable_pin} \
+	] $clk_wiz_1
+ 
+	# Need to retain value_src of defaults
+	set_property -dict [ list \
+	CONFIG.CLKOUT1_JITTER.VALUE_SRC {DEFAULT} \
+	CONFIG.CLKOUT1_PHASE_ERROR.VALUE_SRC {DEFAULT} \
+	CONFIG.MMCM_CLKFBOUT_MULT_F.VALUE_SRC {DEFAULT} \
+	CONFIG.MMCM_CLKIN1_PERIOD.VALUE_SRC {DEFAULT} \
+	CONFIG.MMCM_CLKIN2_PERIOD.VALUE_SRC {DEFAULT} \
+	CONFIG.MMCM_CLKOUT0_DIVIDE_F.VALUE_SRC {DEFAULT} \
+	CONFIG.MMCM_COMPENSATION.VALUE_SRC {DEFAULT} \
+	] $clk_wiz_1
+ 
+ 
+ 
 	create_bd_port -dir I -type rst reset
 	set_property CONFIG.POLARITY [get_property CONFIG.POLARITY [get_bd_pins clk_wiz_1/reset]] [get_bd_ports reset]
 	
@@ -384,13 +404,13 @@ proc create_root_design { parentCell CPUs DebugEN INTERCONNECTENABLE Instruction
 	}
 	#connect_bd_net -net reset_rtl_0_1 [get_bd_ports reset_rtl] [get_bd_pins rst_clk_wiz_1_100M/ext_reset_in]
     #connect_bd_net -net reset_rtl_1 [get_bd_ports reset_rtl] [get_bd_pins clk_wiz_1/reset]
-    
-	
+ 
 	if { $INTERCONNECTENABLE == 1 } {
-	
+		set one 1
+		set uart_channel [expr {$CPUs + $one}] 
 		set axi_interconnect_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_interconnect:2.1 axi_interconnect_0 ]
 		set_property CONFIG.NUM_SI $CPUs $axi_interconnect_0
-		set_property CONFIG.NUM_MI $CPUs $axi_interconnect_0
+		set_property CONFIG.NUM_MI $uart_channel $axi_interconnect_0
 	
 		set _axi "_AXI"
 		set _ACLK "_ACLK";
@@ -422,36 +442,40 @@ proc create_root_design { parentCell CPUs DebugEN INTERCONNECTENABLE Instruction
 		}
 		
 		connect_bd_net [get_bd_pins axi_interconnect_0/ACLK] [get_bd_pins clk_wiz_1/clk_out1]
-		connect_bd_net [get_bd_pins axi_interconnect_0/ARESETN] [get_bd_pins rst_clk_wiz_1_100M/peripheral_aresetn]
+		connect_bd_net [get_bd_pins axi_interconnect_0/ARESETN] [get_bd_pins rst_clk_wiz_1_100M/peripheral_aresetn]	
+		
+		# Create instance: axi_uartlite_0, and set properties
+		set axi_uartlite_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_uartlite:2.0 axi_uartlite_0 ]
+		set_property -dict [ list \
+		CONFIG.C_S_AXI_ACLK_FREQ_HZ {100000000} \
+		] $axi_uartlite_0
 
-		# for { set i 0 } { $i < $CPUs } { incr i } {
-			# assign_bd_address [get_bd_addr_segs {lm_bram_if_cntlr_$i/SLMB/Mem }]
-		# }
+		# Need to retain value_src of defaults
+		set_property -dict [ list \
+		CONFIG.C_S_AXI_ACLK_FREQ_HZ.VALUE_SRC {DEFAULT} \
+		] $axi_uartlite_0
+
+		#set uart_i [expr
+		if { $CPUs < 10 } {
+			connect_bd_intf_net -intf_net axi_interconnect_0_M0$CPUs$_axi [get_bd_intf_pins axi_interconnect_0/M0$CPUs$_axi] [get_bd_intf_pins axi_uartlite_0/S_AXI]
+			connect_bd_net [get_bd_pins axi_interconnect_0/M0$CPUs$_ACLK] [get_bd_pins clk_wiz_1/clk_out1]
+			connect_bd_net [get_bd_pins axi_interconnect_0/M0$CPUs$_ARESETN] [get_bd_pins rst_clk_wiz_1_100M/peripheral_aresetn]
+		} else {
+			connect_bd_intf_net -intf_net axi_interconnect_0_M$CPUs$_axi [get_bd_intf_pins axi_interconnect_0/M$CPUs$_AXI] [get_bd_intf_pins axi_uartlite_0/S_AXI]
+			connect_bd_net [get_bd_pins axi_interconnect_0/M$CPUs$_ACLK] [get_bd_pins clk_wiz_1/clk_out1]
+			connect_bd_net [get_bd_pins axi_interconnect_0/M$CPUs$_ARESETN] [get_bd_pins rst_clk_wiz_1_100M/peripheral_aresetn]
+		}
 		
-		# for { set i 0 } { $i < $CPUs } { incr i } {
-			# assign_bd_address [get_bd_addr_segs {axi_bram_ctrl_$i/S_AXI/Mem0 }]
-		# }
+		connect_bd_net [get_bd_pins axi_uartlite_0/s_axi_aclk] [get_bd_pins clk_wiz_1/clk_out1]
+		connect_bd_net [get_bd_pins axi_uartlite_0/s_axi_aresetn] [get_bd_pins rst_clk_wiz_1_100M/peripheral_aresetn]
 	
-		
-		# for { set i 0 } { $i < $CPUs } { incr i } {
-			# delete_bd_objs [get_bd_addr_segs MicroBlaze_$i/MicroBlaze_$i/Data/SEG_lm_bram_if_cntlr_$i$_Mem]
-			# for { set j 0 } { $j < $CPUs } { incr j } {
-				# delete_bd_objs [get_bd_addr_segs MicroBlaze_$j/MicroBlaze_$j/Data/SEG_axi_bram_ctrl_$i$_Mem0]
-			# }
-		# }
-		
-		# for { set i 0 } { $i < $CPUs } { incr i } {
-			# assign_bd_address [get_bd_addr_segs {lm_bram_if_cntlr_$i/SLMB/Mem }]
-		# }
-		
-		# for { set i 0 } { $i < $CPUs } { incr i } {
-			# assign_bd_address [get_bd_addr_segs {axi_bram_ctrl_$i/S_AXI/Mem0 }]
-		# }
-		
-		
+		create_bd_intf_port -mode Master -vlnv xilinx.com:interface:uart_rtl:1.0 UART
+		connect_bd_intf_net [get_bd_intf_pins axi_uartlite_0/UART] [get_bd_intf_ports UART]
 	}
+		
 	
 
+  
 }
 
 #Muss jedesmal geändert werden!
