@@ -69,8 +69,8 @@ int main()
 		}
 		//ext_v = (int*) XPAR_AXI_BRAM_CTRL_1_S_AXI_BASEADDR + 0x000000002;
 		xil_printf("Wrote to ext adress %x\n", ext_a);
-		ext_v = (int) Xil_In32LE(own_a);
-		xil_printf("Value read:%x\n",&ext_v);
+		ext_v = (int) Xil_In32LE(ext_a);
+		xil_printf("Value read:%x\n",ext_v);
 
 		if(ext_v == 30){
 			print("READ/WRITE to ext Memory was correct");
@@ -102,7 +102,7 @@ int main()
 		Xil_Out32LE(ext_a,30);
 		//ext_v = (int*) XPAR_AXI_BRAM_CTRL_1_S_AXI_BASEADDR + 0x000000002;
 		xil_printf("Wrote to ext adress %d\n",(u32) ext_a);
-		ext_v = (int) Xil_In32LE(own_a);
+		ext_v = (int) Xil_In32LE(ext_a);
 		xil_printf("Value read:%d",ext_v);
 
 		if(ext_v == 30){
