@@ -15,12 +15,16 @@
 ##    no Debug Module, if the Debug Module is used it is reduced to 32 , if the Axi Interconnect is used to 16
 ##    If the setting for CPU_Anzahl is to hight, the value gets reset to the highest possible
 ## 5. The Variable DebugEN can be set before to either exclude (0) or include (1) the debug Module 
-## 6. The Variable INTERCONNECTENABLE can be set before to either exclude (0) or include the AXI Inteconnect
-## 7. If non is specified the default Values are used:
+## 6. The Variable INTERCONNECTENABLE can be set before to either exclude (0) or include (1) the AXI Inteconnect
+## 7. The Variable UART can be set before to either exlcude (0) or include (1) the UART, be carefull if the UART is 
+##    included the Maximum amount of MicroBlazes is reduced to  16. If the UART is used the axi interconnect gets 
+##    included no matter what was defined before
+## 8. If non is specified the default Values are used:
 ##     CPU_Anzahl 		  4
 ##     DesignName 		  "MyDesign"
 ##     DebugEN     		  1
 ##     INTERCONNECTENABLE 1
+##     UART               1
 #############################
 #############################
 
@@ -41,6 +45,22 @@ if { $t == 0} {
 	puts "Using Default for Instruction - Size : 8 K"
 }
 
+set t [info exists UART]
+if { $t == 0 } {
+	set UART 1
+	puts "Using UART since not defined"
+}
+
+
+if { $UART == 1 } {
+	set INTERCONNECTENABLE 1
+	puts "including Axi interconnect";
+	
+	if { $CPU_Anzahl > 15 } {
+		set CPU_Anzahl 15
+		puts "Reducing the maximum amount of available MP to 15 due to UART"
+	}
+}
 
 set t [info exists Memory_Size]
 puts $t
@@ -73,8 +93,14 @@ if { $t == 0 } {
 		puts "axi interconnect is only availble with a maximum amount of 16 ports"
 	}
 	
-}
+} 
 
+if { $INTERCONNECTENABLE == 1 } {
+	if { $CPU_Anzahl > 16} {
+		set CPU_Anzahl 16
+		puts "axi interconnect is only availble with a maximum amount of 16 ports"
+	}
+}
 
 if { $DebugEN == 1} {
 	if { $CPU_Anzahl > 32 } {
@@ -215,7 +241,7 @@ CONFIG.C_I_LMB {1} \
 }
 
 
-proc create_root_design { parentCell CPUs DebugEN INTERCONNECTENABLE Instruction_Size Memory_Size} {
+proc create_root_design { parentCell CPUs DebugEN INTERCONNECTENABLE Instruction_Size Memory_Size UART} {
 	
   if { $parentCell eq "" } {
      set parentCell [get_bd_cells /]
@@ -242,22 +268,7 @@ proc create_root_design { parentCell CPUs DebugEN INTERCONNECTENABLE Instruction
   current_bd_instance $parentObj
 
 
-  # # Create interface ports
-  # set diff_clock_rtl [ create_bd_intf_port -mode Slave -vlnv xilinx.com:interface:diff_clock_rtl:1.0 diff_clock_rtl ]
-  # set_property -dict [ list \
-# CONFIG.FREQ_HZ {100000000} \
- # ] $diff_clock_rtl
 
-  # # Create ports
-  # set reset_rtl [ create_bd_port -dir I -type rst reset_rtl ]
-  # set_property -dict [ list \
-# CONFIG.POLARITY {ACTIVE_HIGH} \
- # ] $reset_rtl
-
-  # set reset_rtl_0 [ create_bd_port -dir I -type rst reset_rtl_0 ]
-  # set_property -dict [ list \
-# CONFIG.POLARITY {ACTIVE_HIGH} \
- # ] $reset_rtl_0
 
     #AUSSERHALB VON DER SCHLEIFE!
     # Create instance: clk_wiz_1, and set properties
@@ -292,8 +303,6 @@ proc create_root_design { parentCell CPUs DebugEN INTERCONNECTENABLE Instruction
 	
 	connect_bd_net [get_bd_pins /clk_wiz_1/reset] [get_bd_ports reset]
 	set rst_clk_wiz_1_100M [ create_bd_cell -type ip -vlnv xilinx.com:ip:proc_sys_reset:5.0 rst_clk_wiz_1_100M ]
-	#set_property -dict [list CONFIG.C_AUX_RESET_HIGH.VALUE_SRC USER] [get_bd_cells rst_clk_wiz_1_100M]
-	#connect_bd_net [get_bd_pins rst_clk_wiz_1_100M/aux_reset_in] [get_bd_pins clk_wiz_1/reset]
 	connect_bd_net [get_bd_pins rst_clk_wiz_1_100M/ext_reset_in] [get_bd_pins clk_wiz_1/reset]
 	
 	
@@ -302,16 +311,7 @@ proc create_root_design { parentCell CPUs DebugEN INTERCONNECTENABLE Instruction
 	
 	create_bd_port -dir I -type clk clk_in1
 	connect_bd_net [get_bd_pins /clk_wiz_1/clk_in1] [get_bd_ports clk_in1]
-	# set_property CONFIG.POLARITY [get_property CONFIG.POLARITY [get_bd_pins clk_wiz_1/reset]] [get_bd_ports reset]
-	# connect_bd_net [get_bd_pins /clk_wiz_1/reset] [get_bd_ports reset]
-	# connect_bd_net [get_bd_ports reset] [get_bd_pins rst_clk_wiz_1_100M/aux_reset_in]
-	# #create_bd_intf_port -mode Slave -vlnv xilinx.com:interface:diff_clock_rtl:1.0 CLK_IN1_D
-	# #connect_bd_intf_net [get_bd_intf_pins clk_wiz_1/CLK_IN1_D] [get_bd_intf_ports CLK_IN1_D]
-	# #connect_bd_net [get_bd_ports clk_in1] [get_bd_pins clk_wiz_1/clk_in1]
-	# #create_bd_port -dir I -type clk clk_in1
-	# #connect_bd_net [get_bd_pins /clk_wiz_1/clk_in1] [get_bd_ports clk_in1]
- 
- 
+
 	if { $DebugEN == 1 } {
 		# # Create instance: mdm_1, and set properties
 		set mdm_1 [ create_bd_cell -type ip -vlnv xilinx.com:ip:mdm:3.2 mdm_1 ]
@@ -407,11 +407,20 @@ proc create_root_design { parentCell CPUs DebugEN INTERCONNECTENABLE Instruction
  
 	if { $INTERCONNECTENABLE == 1 } {
 		set one 1
+		
+		
 		set uart_channel [expr {$CPUs + $one}] 
+
 		set axi_interconnect_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_interconnect:2.1 axi_interconnect_0 ]
 		set_property CONFIG.NUM_SI $CPUs $axi_interconnect_0
-		set_property CONFIG.NUM_MI $uart_channel $axi_interconnect_0
-	
+		
+		
+		if { $UART == 1} {
+			set_property CONFIG.NUM_MI $uart_channel $axi_interconnect_0
+		} else {
+			set_property CONFIG.NUM_MI $CPUs $axi_interconnect_0
+		}
+		
 		set _axi "_AXI"
 		set _ACLK "_ACLK";
 		set _ARESETN "_ARESETN"
@@ -443,36 +452,39 @@ proc create_root_design { parentCell CPUs DebugEN INTERCONNECTENABLE Instruction
 		
 		connect_bd_net [get_bd_pins axi_interconnect_0/ACLK] [get_bd_pins clk_wiz_1/clk_out1]
 		connect_bd_net [get_bd_pins axi_interconnect_0/ARESETN] [get_bd_pins rst_clk_wiz_1_100M/peripheral_aresetn]	
-		
-		# Create instance: axi_uartlite_0, and set properties
-		set axi_uartlite_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_uartlite:2.0 axi_uartlite_0 ]
-		set_property -dict [ list \
-		CONFIG.C_S_AXI_ACLK_FREQ_HZ {100000000} \
-		] $axi_uartlite_0
 
-		# Need to retain value_src of defaults
-		set_property -dict [ list \
-		CONFIG.C_S_AXI_ACLK_FREQ_HZ.VALUE_SRC {DEFAULT} \
-		] $axi_uartlite_0
 
-		#set uart_i [expr
-		if { $CPUs < 10 } {
-			connect_bd_intf_net -intf_net axi_interconnect_0_M0$CPUs$_axi [get_bd_intf_pins axi_interconnect_0/M0$CPUs$_axi] [get_bd_intf_pins axi_uartlite_0/S_AXI]
-			connect_bd_net [get_bd_pins axi_interconnect_0/M0$CPUs$_ACLK] [get_bd_pins clk_wiz_1/clk_out1]
-			connect_bd_net [get_bd_pins axi_interconnect_0/M0$CPUs$_ARESETN] [get_bd_pins rst_clk_wiz_1_100M/peripheral_aresetn]
-		} else {
-			connect_bd_intf_net -intf_net axi_interconnect_0_M$CPUs$_axi [get_bd_intf_pins axi_interconnect_0/M$CPUs$_AXI] [get_bd_intf_pins axi_uartlite_0/S_AXI]
-			connect_bd_net [get_bd_pins axi_interconnect_0/M$CPUs$_ACLK] [get_bd_pins clk_wiz_1/clk_out1]
-			connect_bd_net [get_bd_pins axi_interconnect_0/M$CPUs$_ARESETN] [get_bd_pins rst_clk_wiz_1_100M/peripheral_aresetn]
+
+	if { $UART == 1 } {
+			# Create instance: axi_uartlite_0, and set properties
+			set axi_uartlite_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_uartlite:2.0 axi_uartlite_0 ]
+			set_property -dict [ list \
+			CONFIG.C_S_AXI_ACLK_FREQ_HZ {100000000} \
+			] $axi_uartlite_0
+
+			# Need to retain value_src of defaults
+			set_property -dict [ list \
+			CONFIG.C_S_AXI_ACLK_FREQ_HZ.VALUE_SRC {DEFAULT} \
+			] $axi_uartlite_0
+
+			#set uart_i [expr
+			if { $CPUs < 10 } {
+				connect_bd_intf_net -intf_net axi_interconnect_0_M0$CPUs$_axi [get_bd_intf_pins axi_interconnect_0/M0$CPUs$_axi] [get_bd_intf_pins axi_uartlite_0/S_AXI]
+				connect_bd_net [get_bd_pins axi_interconnect_0/M0$CPUs$_ACLK] [get_bd_pins clk_wiz_1/clk_out1]
+				connect_bd_net [get_bd_pins axi_interconnect_0/M0$CPUs$_ARESETN] [get_bd_pins rst_clk_wiz_1_100M/peripheral_aresetn]
+			} else {
+				connect_bd_intf_net -intf_net axi_interconnect_0_M$CPUs$_axi [get_bd_intf_pins axi_interconnect_0/M$CPUs$_axi] [get_bd_intf_pins axi_uartlite_0/S_AXI]
+				connect_bd_net [get_bd_pins axi_interconnect_0/M$CPUs$_ACLK] [get_bd_pins clk_wiz_1/clk_out1]
+				connect_bd_net [get_bd_pins axi_interconnect_0/M$CPUs$_ARESETN] [get_bd_pins rst_clk_wiz_1_100M/peripheral_aresetn]
+			}
+			
+			connect_bd_net [get_bd_pins axi_uartlite_0/s_axi_aclk] [get_bd_pins clk_wiz_1/clk_out1]
+			connect_bd_net [get_bd_pins axi_uartlite_0/s_axi_aresetn] [get_bd_pins rst_clk_wiz_1_100M/peripheral_aresetn]
+
+			create_bd_intf_port -mode Master -vlnv xilinx.com:interface:uart_rtl:1.0 UART
+			connect_bd_intf_net [get_bd_intf_pins axi_uartlite_0/UART] [get_bd_intf_ports UART]
 		}
-		
-		connect_bd_net [get_bd_pins axi_uartlite_0/s_axi_aclk] [get_bd_pins clk_wiz_1/clk_out1]
-		connect_bd_net [get_bd_pins axi_uartlite_0/s_axi_aresetn] [get_bd_pins rst_clk_wiz_1_100M/peripheral_aresetn]
-	
-		create_bd_intf_port -mode Master -vlnv xilinx.com:interface:uart_rtl:1.0 UART
-		connect_bd_intf_net [get_bd_intf_pins axi_uartlite_0/UART] [get_bd_intf_ports UART]
-	}
-		
+	}	
 	
 
   
@@ -481,26 +493,22 @@ proc create_root_design { parentCell CPUs DebugEN INTERCONNECTENABLE Instruction
 #Muss jedesmal geändert werden!
 set Design $DesignName
 create_bd_design $Design$CPU_Anzahl
-create_root_design "" $CPU_Anzahl $DebugEN $INTERCONNECTENABLE $Instruction_Size $Memory_Size
+create_root_design "" $CPU_Anzahl $DebugEN $INTERCONNECTENABLE $Instruction_Size $Memory_Size $UART
 #assign_bd_address
 puts "Summary:"
-puts "Design-Name"
-puts $DesignName
-puts "CPU-Amount"
-puts $CPU_Anzahl
-puts "Debug-Enabled"
-puts $DebugEN
-puts "Interconnect included"
-puts $INTERCONNECTENABLE
-puts "Size of Instruction Memory"
-puts $Instruction_Size
-puts "Size of Memory"
-puts $Memory_Size
+puts "Design-Name:                $DesignName"
+puts "CPU-Amount:                 $CPU_Anzahl"
+puts "Debug-Enabled:              $DebugEN"
+puts "Interconnect included:      $INTERCONNECTENABLE" 
+puts "Size of Instruction Memory: $Instruction_Size"
+puts "Size of Memory:             $Memory_Size"
+
 
 unset DesignName
 unset CPU_Anzahl
 unset DebugEN
 unset INTERCONNECTENABLE
 unset Instruction_Size
+unset UART
 
 
